@@ -64,6 +64,13 @@ jobs:
     steps:
       - name: Trigger Render Deployment
         env:
-          deploy_url: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          DEPLOY_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          curl "$deploy_url"
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "❌ RENDER_DEPLOY_HOOK_URL secret is empty or not set"
+            exit 1
+          fi
+          echo "✅ Triggering Render deploy hook..."
+          curl -fsS -X POST "$DEPLOY_URL"
+          echo ""
+          echo "✅ Deploy hook triggered — check Render dashboard for build progress"
