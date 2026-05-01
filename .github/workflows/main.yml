@@ -64,13 +64,31 @@ jobs:
     steps:
       - name: Trigger Render Deployment
         env:
-          DEPLOY_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          DEPLOY_URL_RAW: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
+          # ตัด whitespace / newline ที่อาจปนมาตอน paste
+          DEPLOY_URL="$(echo -n "$DEPLOY_URL_RAW" | tr -d '[:space:]')"
+
           if [ -z "$DEPLOY_URL" ]; then
-            echo "❌ RENDER_DEPLOY_HOOK_URL secret is empty or not set"
+            echo "❌ RENDER_DEPLOY_HOOK_URL secret is empty"
+            echo "   → ไปที่ Settings → Secrets and variables → Actions"
+            echo "   → ตั้งชื่อ RENDER_DEPLOY_HOOK_URL พร้อม URL จาก Render"
             exit 1
           fi
-          echo "✅ Triggering Render deploy hook..."
-          curl -fsS -X POST "$DEPLOY_URL"
-          echo ""
-          echo "✅ Deploy hook triggered — check Render dashboard for build progress"
+
+          # ตรวจ URL pattern ของ Render hook
+          case "$DEPLOY_URL" in
+            https://api.render.com/deploy/srv-*)
+              echo "✅ Hook URL format ok"
+              ;;
+            *)
+              echo "❌ URL format invalid (must start with https://api.render.com/deploy/srv-)"
+              echo "   first 35 chars: ${DEPLOY_URL:0:35}"
+              exit 1
+              ;;
+          esac
+
+          echo "📡 Triggering Render deploy hook..."
+          response=$(curl -fsS -X POST "$DEPLOY_URL")
+          echo "Response: $response"
+          echo "✅ Deploy triggered — check https://dashboard.render.com for build progress"
